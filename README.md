@@ -125,13 +125,68 @@ APIPUBLIC/
 │   └── routers/
 │       └── predictions.py # rutas de predicción + CRUD
 ├── tests/test_api.py
-├── data/                  # se crea en el primer arranque
-├── models/                # se crea en el primer arranque
-├── requirements.txt
-├── requirements-dev.txt
+├── data/                  # predictions.json versionado con DVC (.dvc en git)
+├── models/                # iris_model.joblib versionado con DVC (.dvc en git)
+├── requirements.txt       # dependencias pineadas con ==
+├── requirements-dev.txt   # pytest, httpx y DVC pineados
 ├── pytest.ini
 └── README.md
 ```
+
+## Reproducibilidad y versionado de datos
+
+### Entorno reproducible
+
+| Pieza | Detalle |
+|---|---|
+| Python | 3.14.5 (probado en 3.14; requiere 3.10+) |
+| Dependencias | `requirements.txt` pineado con `==` a las versiones exactas instaladas: fastapi 0.162.0, uvicorn 0.54.0, scikit-learn 1.9.1, joblib 1.6.0 |
+| Dependencias dev | `requirements-dev.txt` agrega pytest 8.4.2, httpx 0.28.1 y DVC 3.67.1, también pineados |
+| Semilla | `train_test_split(..., random_state=42)` y `LogisticRegression` determinístico: mismo entrenamiento ⇒ mismo modelo |
+| Artefactos ignorados en git | `data/predictions.json` y `models/iris_model.joblib` se versionan con DVC, no con git |
+
+Para recrear el entorno exacto:
+
+```powershell
+py -3.14 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+```
+
+### Versionado de datos con DVC
+
+El repositorio usa [DVC](https://dvc.org) para versionar los archivos grandes junto a git. Git guarda solo los punteros (`*.dvc`); el contenido vive en el remoto DVC configurado.
+
+| Archivo | Versionado |
+|---|---|
+| `data/predictions.json` | `data/predictions.json.dvc` |
+| `models/iris_model.joblib` | `models/iris_model.joblib.dvc` |
+
+El remoto DVC por defecto (`storage`) apunta a `../dvc-storage` (carpeta local fuera del repo). Para usar un remoto remoto real (S3, GCS, SSH, etc.):
+
+```powershell
+dvc remote add -d storage s3://mi-bucket/apipublic
+dvc push
+```
+
+Flujo habitual después de clonar:
+
+```powershell
+git clone <repo>
+pip install -r requirements-dev.txt
+dvc pull          # descarga data/predictions.json y models/iris_model.joblib
+```
+
+Si cambiás un dato o reentrenás el modelo y querés versionar la nueva versión:
+
+```powershell
+dvc add data/predictions.json models/iris_model.joblib
+git add data/predictions.json.dvc models/iris_model.joblib.dvc data/.gitignore models/.gitignore
+git commit -m "chore: versionar datos y modelo"
+dvc push
+```
+
+Nota: `data/predictions.json` es estado de la aplicación en tiempo de ejecución; versiona solo cuando quieras congelar un snapshot intencional. El dataset Iris proviene de `sklearn.datasets.load_iris()` y se reproduce idéntico con las versiones pineadas de scikit-learn.
 
 ## Tests
 
