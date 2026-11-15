@@ -177,6 +177,13 @@ pip install -r requirements-dev.txt
 dvc pull          # descarga data/predictions.json y models/iris_model.joblib
 ```
 
+Nota: el remoto `storage` usa una ruta relativa (`../dvc-storage`, relativo a `.dvc/`), por lo que solo funciona si el clon queda en la misma disposición de carpetas que este repo. Si clonás en otra ubicación, primero apuntá el remoto a la carpeta de almacenamiento real y después hacé `dvc pull`:
+
+```powershell
+dvc remote modify storage url "C:\ruta\absoluta\a\dvc-storage"
+dvc pull
+```
+
 Si cambiás un dato o reentrenás el modelo y querés versionar la nueva versión:
 
 ```powershell
